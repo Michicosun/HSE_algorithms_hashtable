@@ -17,7 +17,7 @@ private:
     std::vector<std::vector<node>> table;
     
     void rebuild() {
-        if (cur_capacity < cur_size * scale && cur_size * scale < cur_size * scale) return;
+        if (cur_capacity < cur_size * scale && cur_size * scale < cur_capacity * scale) return;
         cur_capacity = std::max(min_cnt_rows, 2 * cur_size);
         std::vector<std::vector<node>> next_table(cur_capacity);
         for (size_t i = 0; i < table.size(); ++i) {
