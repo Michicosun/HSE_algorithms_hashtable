@@ -1,12 +1,11 @@
 #include <iostream>
 #include <functional>
 #include <vector>
+#include <memory>
 
 template<class KeyType, class ValueType, class Hash = std::hash<KeyType>>
 class HashMap {
 private:
-    const static inline size_t min_cnt_rows = 10;
-    const static inline size_t scale = 4;
     
     typedef std::unique_ptr<std::pair<const KeyType, ValueType>> node;
     
@@ -31,6 +30,9 @@ private:
     }
     
 public:
+    
+    const static size_t min_cnt_rows;
+    const static size_t scale;
     
     class iterator {
     private:
@@ -142,17 +144,44 @@ public:
         }
     };
     
-    HashMap(Hash hash_function = Hash()) : hasher(hash_function), cur_size(0), cur_capacity(min_cnt_rows) {
+    HashMap() : hasher() {
+        cur_size = 0;
+        cur_capacity = min_cnt_rows;
+        table.resize(min_cnt_rows);
+    }
+    
+    HashMap(const Hash& hash_function) : hasher(hash_function) {
+        cur_size = 0;
+        cur_capacity = min_cnt_rows;
         table.resize(min_cnt_rows);
     }
     
     template<class Iterator>
-    HashMap(Iterator begin, Iterator end, Hash hash_function = Hash()) : hasher(hash_function), cur_size(0), cur_capacity(min_cnt_rows) {
+    HashMap(Iterator begin, Iterator end, const Hash& hash_function) : hasher(hash_function) {
+        cur_size = 0;
+        cur_capacity = min_cnt_rows;
         table.resize(min_cnt_rows);
         for (auto it = begin; it != end; ++it) insert(*it);
     }
     
-    HashMap(std::initializer_list<std::pair<KeyType, ValueType>> list, Hash hash_function = Hash()) : hasher(hash_function), cur_size(0), cur_capacity(min_cnt_rows) {
+    template<class Iterator>
+    HashMap(Iterator begin, Iterator end) : hasher() {
+        cur_size = 0;
+        cur_capacity = min_cnt_rows;
+        table.resize(min_cnt_rows);
+        for (auto it = begin; it != end; ++it) insert(*it);
+    }
+    
+    HashMap(std::initializer_list<std::pair<KeyType, ValueType>> list, const Hash& hash_function) : hasher(hash_function) {
+        cur_size = 0;
+        cur_capacity = min_cnt_rows;
+        table.resize(min_cnt_rows);
+        for (const auto& el : list) insert(el);
+    }
+    
+    HashMap(std::initializer_list<std::pair<KeyType, ValueType>> list) : hasher() {
+        cur_size = 0;
+        cur_capacity = min_cnt_rows;
         table.resize(min_cnt_rows);
         for (const auto& el : list) insert(el);
     }
@@ -273,4 +302,11 @@ public:
     }
     
 };
+
+template<class KeyType, class ValueType, class Hash>
+const size_t HashMap<KeyType, ValueType, Hash>::min_cnt_rows = 10;
+
+template<class KeyType, class ValueType, class Hash>
+const size_t HashMap<KeyType, ValueType, Hash>::scale = 4;
+
 
