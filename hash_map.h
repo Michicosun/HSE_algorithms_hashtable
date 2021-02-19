@@ -168,8 +168,7 @@ public:
     }
     
     template<class Iterator>
-    HashMap(Iterator begin, Iterator end, const Hash& hash_function) {
-        hasher = hash_function;
+    HashMap(Iterator begin, Iterator end, const Hash& hash_function) : hasher(hash_function) {
         cur_size = 0;
         cur_capacity = HashMap::min_cnt_rows;
         table.resize(HashMap::min_cnt_rows);
@@ -184,19 +183,14 @@ public:
         cur_size = 0;
         cur_capacity = HashMap::min_cnt_rows;
         table.resize(HashMap::min_cnt_rows);
-        for (auto it = list.begin(); it != list.end(); ++it) {
-            insert(*it);
-        }
+        for (auto it = list.begin(); it != list.end(); ++it) insert(*it);
     }
     
-    HashMap(std::initializer_list<std::pair<KeyType, ValueType>> list, const Hash& hash_function) {
-        hasher = hash_function;
+    HashMap(std::initializer_list<std::pair<KeyType, ValueType>> list, const Hash& hash_function) : hasher(hash_function) {
         cur_size = 0;
         cur_capacity = HashMap::min_cnt_rows;
         table.resize(HashMap::min_cnt_rows);
-        for (auto it = list.begin(); it != list.end(); ++it) {
-            insert(*it);
-        }
+        for (auto it = list.begin(); it != list.end(); ++it) insert(*it);
     }
     
     HashMap(const HashMap& other) : hasher(other.hasher) {
@@ -272,7 +266,6 @@ public:
             if (table[ind][i]->first == key) {
                 table[ind].erase(table[ind].begin() + i);
                 --cur_size;
-                rebuild();
                 break;
             }
         }
