@@ -3,6 +3,7 @@
 #include <vector>
 #include <memory>
 
+
 template<class KeyType, class ValueType, class Hash = std::hash<KeyType>>
 class HashMap {
 private:
@@ -17,8 +18,8 @@ private:
     std::vector<std::vector<node>> table;
     
     void rebuild() {
-        if (cur_capacity < cur_size * scale && cur_size * scale < cur_capacity * scale) return;
-        cur_capacity = std::max(min_cnt_rows, 2 * cur_size);
+        if (cur_capacity < cur_size * HashMap::scale && cur_size * HashMap::scale < cur_capacity * HashMap::scale) return;
+        cur_capacity = std::max(HashMap::min_cnt_rows, 2 * cur_size);
         std::vector<std::vector<node>> next_table(cur_capacity);
         for (size_t i = 0; i < table.size(); ++i) {
             for (auto &ptr : table[i]) {
@@ -66,9 +67,8 @@ public:
         }
         
         iterator operator++ (int) {
-            iterator oldIter(hash_table, row, ind);
-            ++ind;
-            find_next_occupied();
+            iterator oldIter = (*this);
+            ++(*this);
             return oldIter;
         }
         
@@ -121,9 +121,8 @@ public:
         }
         
         const_iterator operator++ (int) {
-            const_iterator oldIter(hash_table, row, ind);
-            ++ind;
-            find_next_occupied();
+            const_iterator oldIter = (*this);
+            ++(*this);
             return oldIter;
         }
         
@@ -146,47 +145,64 @@ public:
     
     HashMap() : hasher() {
         cur_size = 0;
-        cur_capacity = min_cnt_rows;
-        table.resize(min_cnt_rows);
+        cur_capacity = HashMap::min_cnt_rows;
+        table.resize(HashMap::min_cnt_rows);
     }
     
     HashMap(const Hash& hash_function) : hasher(hash_function) {
         cur_size = 0;
-        cur_capacity = min_cnt_rows;
-        table.resize(min_cnt_rows);
+        cur_capacity = HashMap::min_cnt_rows;
+        table.resize(HashMap::min_cnt_rows);
     }
     
     template<class Iterator>
-    HashMap(Iterator begin, Iterator end, const Hash& hash_function) : hasher(hash_function) {
+    HashMap(Iterator begin, Iterator end) {
+        hasher = Hash();
         cur_size = 0;
-        cur_capacity = min_cnt_rows;
-        table.resize(min_cnt_rows);
-        for (auto it = begin; it != end; ++it) insert(*it);
+        cur_capacity = HashMap::min_cnt_rows;
+        table.resize(HashMap::min_cnt_rows);
+        while (begin != end) {
+            insert(*begin);
+            ++begin;
+        }
     }
     
     template<class Iterator>
-    HashMap(Iterator begin, Iterator end) : hasher() {
+    HashMap(Iterator begin, Iterator end, const Hash& hash_function) {
+        hasher = hash_function;
         cur_size = 0;
-        cur_capacity = min_cnt_rows;
-        table.resize(min_cnt_rows);
-        for (auto it = begin; it != end; ++it) insert(*it);
+        cur_capacity = HashMap::min_cnt_rows;
+        table.resize(HashMap::min_cnt_rows);
+        while (begin != end) {
+            insert(*begin);
+            ++begin;
+        }
     }
     
-    HashMap(std::initializer_list<std::pair<KeyType, ValueType>> list, const Hash& hash_function) : hasher(hash_function) {
+    HashMap(std::initializer_list<std::pair<KeyType, ValueType>> list) {
+        hasher = Hash();
         cur_size = 0;
-        cur_capacity = min_cnt_rows;
-        table.resize(min_cnt_rows);
-        for (const auto& el : list) insert(el);
+        cur_capacity = HashMap::min_cnt_rows;
+        table.resize(HashMap::min_cnt_rows);
+        for (auto it = list.begin(); it != list.end(); ++it) {
+            insert(*it);
+        }
     }
     
-    HashMap(std::initializer_list<std::pair<KeyType, ValueType>> list) : hasher() {
+    HashMap(std::initializer_list<std::pair<KeyType, ValueType>> list, const Hash& hash_function) {
+        hasher = hash_function;
         cur_size = 0;
-        cur_capacity = min_cnt_rows;
-        table.resize(min_cnt_rows);
-        for (const auto& el : list) insert(el);
+        cur_capacity = HashMap::min_cnt_rows;
+        table.resize(HashMap::min_cnt_rows);
+        for (auto it = list.begin(); it != list.end(); ++it) {
+            insert(*it);
+        }
     }
     
-    HashMap(const HashMap& other) : HashMap(other.hasher) {
+    HashMap(const HashMap& other) : hasher(other.hasher) {
+        cur_size = 0;
+        cur_capacity = HashMap::min_cnt_rows;
+        table.resize(HashMap::min_cnt_rows);
         for (const auto& el : other) {
             insert(el);
         }
@@ -194,8 +210,8 @@ public:
     
     HashMap operator= (const HashMap& other) {
         hasher = other.hasher;
-        table.resize(min_cnt_rows);
-        cur_capacity = min_cnt_rows;
+        table.resize(HashMap::min_cnt_rows);
+        cur_capacity = HashMap::min_cnt_rows;
         for (const auto& el : other) {
             insert(el);
         }
@@ -240,8 +256,10 @@ public:
     
     void insert(const std::pair<KeyType, ValueType>& element) {
         size_t ind = hasher(element.first) % cur_capacity;
-        for (size_t i = 0; i < table[ind].size(); ++i) {
-            if (table[ind][i]->first == element.first) return;
+        for (const auto &p : table[ind]) {
+            if (p->first == element.first) {
+                return;
+            }
         }
         table[ind].push_back(node(new std::pair<const KeyType, ValueType>(element)));
         ++cur_size;
@@ -253,6 +271,8 @@ public:
         for (size_t i = 0; i < table[ind].size(); ++i) {
             if (table[ind][i]->first == key) {
                 table[ind].erase(table[ind].begin() + i);
+                --cur_size;
+                rebuild();
                 break;
             }
         }
@@ -277,7 +297,7 @@ public:
     
     ValueType& operator[] (const KeyType& key) {
         auto it = find(key);
-        if (it == end()) insert({key, ValueType()});
+        if (it == end()) insert(std::make_pair(key, ValueType()));
         it = find(key);
         return it->second;
     }
@@ -295,9 +315,8 @@ public:
     }
     
     void clear() {
-        for (size_t ind = 0; ind < cur_capacity; ++ind) {
-            while (!table[ind].empty()) table.pop_back();
-        }
+        for (size_t ind = 0; ind < cur_capacity; ++ind) table[ind].clear();
+        cur_size = 0;
         rebuild();
     }
     
