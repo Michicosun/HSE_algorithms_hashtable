@@ -3,6 +3,8 @@
 #include <vector>
 #include <memory>
 
+//Ahahaha, found a translation error in the comments
+
 //Class HashMap. Interface is similar to the unordered_map from stl
 template<class KeyType, class ValueType, class Hash = std::hash<KeyType>>
 class HashMap {
@@ -27,9 +29,9 @@ private:
         cur_capacity = std::max(min_cnt_rows, 2 * cur_size);
         std::vector<std::vector<node>> next_table(cur_capacity);
         for (size_t i = 0; i < table.size(); ++i) {
-            for (auto &ptr : table[i]) {
-                size_t ind = hasher(ptr->first) % cur_capacity;
-                next_table[ind].push_back(std::move(ptr));
+            for (auto& el : table[i]) {
+                size_t ind = hasher(el->first) % cur_capacity;
+                next_table[ind].push_back(std::move(el));
             }
         }
         table.swap(next_table);
@@ -71,7 +73,7 @@ public:
         }
         
         iterator operator++ (int) {
-            iterator oldIter = (*this);
+            iterator oldIter(hash_table, row, ind);
             ++(*this);
             return oldIter;
         }
@@ -81,7 +83,7 @@ public:
         }
         
         std::pair<const KeyType, ValueType>* operator-> () {
-            return &*(hash_table->table[row][ind]);
+            return hash_table->table[row][ind].get();
         }
         
         bool operator== (iterator other) {
@@ -126,7 +128,7 @@ public:
         }
         
         const_iterator operator++ (int) {
-            const_iterator oldIter = (*this);
+            const_iterator oldIter(hash_table, row, ind);
             ++(*this);
             return oldIter;
         }
@@ -136,7 +138,7 @@ public:
         }
         
         const std::pair<const KeyType, ValueType>* operator-> () const {
-            return &*(hash_table->table[row][ind]);
+            return hash_table->table[row][ind].get();
         }
         
         bool operator== (const_iterator other) const {
@@ -217,7 +219,7 @@ public:
         return *this;
     }
     
-    // Returns the curent count of elements in the table
+    // Returns the current count of elements in the table
     size_t size() const {
         return cur_size;
     }
