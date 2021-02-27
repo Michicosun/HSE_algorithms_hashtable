@@ -1,40 +1,45 @@
 #include <iostream>
 #include <functional>
 #include <vector>
+#include <list>
 #include <memory>
 
-//Ahahaha, found a translation error in the comments
+//CHANGE_2 : rewrote the inner vector to std::list
+
+//CHANGE_1 : Ahahaha, found a translation error in the comments
 
 //Class HashMap. Interface is similar to the unordered_map from stl
 template<class KeyType, class ValueType, class Hash = std::hash<KeyType>>
 class HashMap {
 private:
     
-    const size_t min_cnt_rows = 10;
-    const size_t scale = 4;
-    
     typedef std::unique_ptr<std::pair<const KeyType, ValueType>> node;
+    typedef typename std::list<node>::iterator list_iterator;
+    typedef typename std::list<node>::const_iterator const_list_iterator;
+    
+    const static size_t min_cnt_rows;
+    const static size_t scale;
+    const static size_t change_capacity;
     
     size_t cur_capacity;
     size_t cur_size;
     
     Hash hasher;
     
-    std::vector<std::vector<node>> table;
+    std::vector<std::list<node>> table;
     
-    
-    //Rebuilds HashMap if count of element not in range [capacity / scale ... capacity]
+    //Rebuilds HashMap if count of element not in range [capacity / scale... capacity]
     void rebuild() {
         if (cur_capacity < cur_size * scale && cur_size * scale < cur_capacity * scale) return;
-        cur_capacity = std::max(min_cnt_rows, 2 * cur_size);
-        std::vector<std::vector<node>> next_table(cur_capacity);
-        for (size_t i = 0; i < table.size(); ++i) {
-            for (auto& el : table[i]) {
+        cur_capacity = std::max(min_cnt_rows, change_capacity * cur_size);
+        std::vector<std::list<node>> next_table(cur_capacity);
+        for (auto& row : table) {
+            for (auto& el : row) {
                 size_t ind = hasher(el->first) % cur_capacity;
-                next_table[ind].push_back(std::move(el));
+                next_table[ind].push_front(move(el));
             }
         }
-        table.swap(next_table);
+        swap(table, next_table);
     }
     
 public:
@@ -43,111 +48,139 @@ public:
     //Can jump to next occupied cell
     class iterator {
     private:
-        HashMap* hash_table;
+        
+        std::vector<std::list<node>>* hash_table;
         
         size_t row;
-        size_t ind;
+        list_iterator lit;
         
         void find_next_occupied() {
-            while (row < hash_table->cur_capacity && ind == hash_table->table[row].size()) {
-                ++row;
-                ind = 0;
+            if (row < hash_table->size()) {
+                if (lit == hash_table->at(row).end()) ++row;
+                else return;
+                while (row < hash_table->size() && hash_table->at(row).empty()) ++row;
             }
+            if (row < hash_table->size()) lit = hash_table->at(row).begin();
+            else lit = list_iterator();
         }
         
     public:
         
         iterator () {}
         
-        iterator (HashMap* hash_map, size_t cell_row = 0, size_t cell_ind = 0) {
+        iterator (std::vector<std::list<node>>* hash_map, size_t cell_row, list_iterator it) {
             hash_table = hash_map;
             row = cell_row;
-            ind = cell_ind;
+            lit = it;
             find_next_occupied();
         }
         
         iterator operator++ () {
-            ++ind;
+            ++lit;
             find_next_occupied();
             return *this;
         }
         
         iterator operator++ (int) {
-            iterator oldIter(hash_table, row, ind);
-            ++(*this);
+            iterator oldIter(hash_table, row, lit);
+            ++lit;
+            find_next_occupied();
             return oldIter;
         }
         
+        const size_t getRow() const {
+            return row;
+        }
+        
+        const list_iterator getListIterator() const {
+            return lit;
+        }
+        
         std::pair<const KeyType, ValueType>& operator* () {
-            return *hash_table->table[row][ind];
+            return **lit;
         }
         
         std::pair<const KeyType, ValueType>* operator-> () {
-            return hash_table->table[row][ind].get();
+            return (*lit).get();
         }
         
         bool operator== (iterator other) {
-            return other.hash_table == hash_table && other.row == row && other.ind == ind;
+            return other.hash_table == hash_table && other.row == row && other.lit == lit;
         }
         
         bool operator!= (iterator other) {
             return !(other == *this);
         }
+        
     };
     
     //Class const_iterator is a const version of iterator
     class const_iterator {
     private:
-        const HashMap* hash_table;
+        
+        const std::vector<std::list<node>>* hash_table;
         
         size_t row;
-        size_t ind;
+        const_list_iterator lit;
         
         void find_next_occupied() {
-            while (row < hash_table->cur_capacity && ind == hash_table->table[row].size()) {
-                ++row;
-                ind = 0;
+            if (row < hash_table->size()) {
+                if (lit == hash_table->at(row).end()) ++row;
+                else return;
+                while (row < hash_table->size() && hash_table->at(row).empty()) ++row;
             }
+            if (row < hash_table->size()) lit = hash_table->at(row).begin();
+            else lit = list_iterator();
         }
         
     public:
         
         const_iterator () {}
         
-        const_iterator (const HashMap* hash_map, size_t cell_row = 0, size_t cell_ind = 0) {
+        const_iterator (const std::vector<std::list<node>>* hash_map, size_t cell_row, const_list_iterator it) {
             hash_table = hash_map;
             row = cell_row;
-            ind = cell_ind;
+            lit = it;
             find_next_occupied();
         }
         
         const_iterator operator++ () {
-            ++ind;
+            ++lit;
             find_next_occupied();
             return *this;
         }
         
         const_iterator operator++ (int) {
-            const_iterator oldIter(hash_table, row, ind);
-            ++(*this);
+            const_iterator oldIter(hash_table, row, lit);
+            ++lit;
+            find_next_occupied();
             return oldIter;
         }
         
-        const std::pair<const KeyType, ValueType>& operator* () const {
-            return *hash_table->table[row][ind];
+        const size_t getRow() const {
+            return row;
         }
         
-        const std::pair<const KeyType, ValueType>* operator-> () const {
-            return hash_table->table[row][ind].get();
+        const const_list_iterator getListIterator() const {
+            return lit;
         }
         
-        bool operator== (const_iterator other) const {
-            return other.hash_table == hash_table && other.row == row && other.ind == ind;
+        std::pair<const KeyType, ValueType>& operator* () {
+            return **lit;
         }
         
-        bool operator!= (const_iterator other) const {
+        std::pair<const KeyType, ValueType>* operator-> () {
+            return (*lit).get();
+        }
+        
+        bool operator== (const_iterator other) {
+            return other.hash_table == hash_table && other.row == row && other.lit == lit;
+        }
+        
+        bool operator!= (const_iterator other) {
             return !(other == *this);
         }
+        
     };
     
     // Constructors
@@ -236,61 +269,57 @@ public:
     
     // Returns an iterator to the first element of the table
     iterator begin() {
-        return iterator(this, 0, 0);
+        return iterator(&table, 0, table[0].begin());
     }
     
     const_iterator begin() const {
-        return const_iterator(this, 0, 0);
+        return const_iterator(&table, 0, table[0].begin());
     }
     
     // Returns an iterator pointing to the position behind the last element
     iterator end() {
-        return iterator(this, table.size(), 0);
+        return iterator(&table, table.size(), list_iterator());
     }
     
     const_iterator end() const {
-        return const_iterator(this, table.size(), 0);
-    }
-    
-    void insert(const std::pair<KeyType, ValueType>& element) {
-        size_t ind = hasher(element.first) % cur_capacity;
-        for (size_t i = 0; i < table[ind].size(); ++i) {
-            if (table[ind][i]->first == element.first) {
-                return;
-            }
-        }
-        table[ind].push_back(node(new std::pair<const KeyType, ValueType>(element)));
-        ++cur_size;
-        rebuild();
-    }
-    
-    void erase(const KeyType& key) {
-        size_t ind = hasher(key) % cur_capacity;
-        for (size_t i = 0; i < table[ind].size(); ++i) {
-            if (table[ind][i]->first == key) {
-                table[ind].erase(table[ind].begin() + i);
-                --cur_size;
-                break;
-            }
-        }
-        rebuild();
+        return const_iterator(&table, table.size(), const_list_iterator());
     }
     
     // Returns an iterator to the element if found, otherwise the iterator to the end
     iterator find(const KeyType& key) {
         size_t ind = hasher(key) % cur_capacity;
-        for (size_t i = 0; i < table[ind].size(); ++i) {
-            if (table[ind][i]->first == key) return iterator(this, ind, i);
+        for (auto it = table[ind].begin(); it != table[ind].end(); ++it) {
+            if ((*it)->first == key) return iterator(&table, ind, it);
         }
         return end();
     }
     
     const_iterator find(const KeyType& key) const {
         size_t ind = hasher(key) % cur_capacity;
-        for (size_t i = 0; i < table[ind].size(); ++i) {
-            if (table[ind][i]->first == key) return const_iterator(this, ind, i);
+        for (auto it = table[ind].begin(); it != table[ind].end(); ++it) {
+            if ((*it)->first == key) {
+                return const_iterator(&table, ind, it);
+            }
         }
         return end();
+    }
+    
+    void insert(const std::pair<KeyType, ValueType>& element) {
+        auto it = find(element.first);
+        if (it == end()) {
+            size_t ind = hasher(element.first) % cur_capacity;
+            table[ind].push_front(node(new std::pair<const KeyType, ValueType>(element)));
+            ++cur_size; rebuild();
+        }
+    }
+    
+    void erase(const KeyType& key) {
+        auto it = find(key);
+        if (it != end()) {
+            size_t row = it.getRow();
+            table[row].erase(it.getListIterator());
+            --cur_size; rebuild();
+        }
     }
     
     // Сreates an item if it hasn't left it
@@ -316,10 +345,21 @@ public:
     
     // Deletes all elements in the table
     void clear() {
-        for (size_t ind = 0; ind < cur_capacity; ++ind) table[ind].clear();
+        for (size_t ind = 0; ind < cur_capacity; ++ind) {
+            while (!table[ind].empty()) table[ind].pop_back();
+        }
         cur_size = 0;
         rebuild();
     }
     
 };
+
+template<class KeyType, class ValueType, class Hash>
+const size_t HashMap<KeyType, ValueType, Hash>::min_cnt_rows = 7;
+
+template<class KeyType, class ValueType, class Hash>
+const size_t HashMap<KeyType, ValueType, Hash>::scale = 3;
+
+template<class KeyType, class ValueType, class Hash>
+const size_t HashMap<KeyType, ValueType, Hash>::change_capacity = 2;
 
