@@ -4,10 +4,6 @@
 #include <list>
 #include <memory>
 
-//CHANGE_2 : rewrote the inner vector to std::list
-
-//CHANGE_1 : Ahahaha, found a translation error in the comments
-
 //Class HashMap. Interface is similar to the unordered_map from stl
 template<class KeyType, class ValueType, class Hash = std::hash<KeyType>>
 class HashMap {
@@ -28,6 +24,10 @@ private:
     
     std::vector<std::list<node>> table;
     
+    size_t getRow(const KeyType& x) const {
+        return hasher(x) % cur_capacity;
+    }
+    
     //Rebuilds HashMap if count of element not in range [capacity / scale... capacity]
     void rebuild() {
         if (cur_capacity < cur_size * scale && cur_size * scale < cur_capacity * scale) return;
@@ -35,12 +35,13 @@ private:
         std::vector<std::list<node>> next_table(cur_capacity);
         for (auto& row : table) {
             for (auto& el : row) {
-                size_t ind = hasher(el->first) % cur_capacity;
-                next_table[ind].push_front(move(el));
+                size_t row = getRow(el->first);
+                next_table[row].push_front(move(el));
             }
         }
         swap(table, next_table);
     }
+    
     
 public:
     
@@ -287,19 +288,17 @@ public:
     
     // Returns an iterator to the element if found, otherwise the iterator to the end
     iterator find(const KeyType& key) {
-        size_t ind = hasher(key) % cur_capacity;
-        for (auto it = table[ind].begin(); it != table[ind].end(); ++it) {
-            if ((*it)->first == key) return iterator(&table, ind, it);
+        size_t row = getRow(key);
+        for (auto it = table[row].begin(); it != table[row].end(); ++it) {
+            if ((*it)->first == key) return iterator(&table, row, it);
         }
         return end();
     }
     
     const_iterator find(const KeyType& key) const {
-        size_t ind = hasher(key) % cur_capacity;
-        for (auto it = table[ind].begin(); it != table[ind].end(); ++it) {
-            if ((*it)->first == key) {
-                return const_iterator(&table, ind, it);
-            }
+        size_t row = getRow(key);
+        for (auto it = table[row].begin(); it != table[row].end(); ++it) {
+            if ((*it)->first == key) return const_iterator(&table, row, it);
         }
         return end();
     }
@@ -307,8 +306,8 @@ public:
     void insert(const std::pair<KeyType, ValueType>& element) {
         auto it = find(element.first);
         if (it == end()) {
-            size_t ind = hasher(element.first) % cur_capacity;
-            table[ind].push_front(node(new std::pair<const KeyType, ValueType>(element)));
+            size_t row = getRow(element.first);
+            table[row].push_front(node(new std::pair<const KeyType, ValueType>(element)));
             ++cur_size; rebuild();
         }
     }
@@ -345,8 +344,8 @@ public:
     
     // Deletes all elements in the table
     void clear() {
-        for (size_t ind = 0; ind < cur_capacity; ++ind) {
-            while (!table[ind].empty()) table[ind].pop_back();
+        for (size_t row = 0; row < cur_capacity; ++row) {
+            while (!table[row].empty()) table[row].pop_back();
         }
         cur_size = 0;
         rebuild();
@@ -358,7 +357,7 @@ template<class KeyType, class ValueType, class Hash>
 const size_t HashMap<KeyType, ValueType, Hash>::min_cnt_rows = 7;
 
 template<class KeyType, class ValueType, class Hash>
-const size_t HashMap<KeyType, ValueType, Hash>::scale = 3;
+const size_t HashMap<KeyType, ValueType, Hash>::scale = 4;
 
 template<class KeyType, class ValueType, class Hash>
 const size_t HashMap<KeyType, ValueType, Hash>::change_capacity = 2;
