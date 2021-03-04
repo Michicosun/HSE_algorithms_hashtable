@@ -353,6 +353,8 @@ public:
     
 };
 
+
+//Constants
 template<class KeyType, class ValueType, class Hash>
 const size_t HashMap<KeyType, ValueType, Hash>::min_cnt_rows = 7;
 
